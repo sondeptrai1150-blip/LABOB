@@ -1,1 +1,1376 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ລະບົບ POS ຮ້ານອາຫານ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#141a18; --panel:#1c2422; --panelAlt:#212b28; --line:#2c3733;
+    --text:#ede7da; --dim:#9da9a2; --brass:#c69a4a; --brassHi:#dcae5c;
+    --chili:#b8503f; --leaf:#5c8563;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, "Noto Sans Lao", sans-serif; }
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  input,select{ font-family:inherit; }
+  .hidden{ display:none !important; }
+
+  /* ---------- layout helpers ---------- */
+  .p4{ padding:16px; } .p6{ padding:24px; }
+  .row{ display:flex; align-items:center; }
+  .between{ justify-content:space-between; }
+  .wrap{ flex-wrap:wrap; }
+  .gap2{ gap:8px; } .gap3{ gap:12px; }
+  .grow{ flex:1; }
+  .center{ align-items:center; }
+
+  /* ---------- header ---------- */
+  header.top{ display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-bottom:1px solid var(--line); flex-wrap:wrap; gap:10px; }
+  .brand{ display:flex; gap:10px; align-items:center; }
+  .brand .logo{ width:38px; height:38px; border-radius:50%; background:var(--brass); display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .brand h1{ font-size:18px; margin:0; letter-spacing:0.5px; }
+  .brand p{ font-size:11px; margin:0; color:var(--dim); }
+
+  .lang-switch{ display:flex; gap:2px; align-items:center; }
+  .lang-switch button{ font-size:11px; padding:5px 8px; border-radius:6px; background:transparent; color:var(--dim); }
+  .lang-switch button.active{ background:var(--brass); color:var(--bg); }
+
+  .btn{ padding:9px 14px; border-radius:10px; font-size:13px; background:var(--panel); color:var(--text); border:1px solid var(--line); display:inline-flex; align-items:center; gap:6px; }
+  .btn.brass{ background:var(--brass); color:var(--bg); border:none; }
+  .btn.leaf{ background:var(--leaf); color:var(--bg); border:none; }
+  .btn.chili{ border:1px solid var(--chili); color:var(--chili); background:transparent; }
+  .btn.chili-solid{ background:var(--chili); color:#fff; border:none; }
+  .btn.ghost{ background:transparent; border:1px dashed var(--dim); color:var(--dim); }
+  .btn:disabled{ opacity:0.3; }
+  .btn.sm{ padding:6px 10px; font-size:12px; }
+
+  /* ---------- floor ---------- */
+  .table-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; padding:24px; }
+  @media(min-width:600px){ .table-grid{ grid-template-columns:repeat(3,1fr);} }
+  @media(min-width:900px){ .table-grid{ grid-template-columns:repeat(5,1fr);} }
+  .table-card{ border-radius:12px; padding:14px; text-align:left; background:var(--panel); border:1px solid var(--line); }
+  .table-card.occupied{ background:var(--panelAlt); border-color:var(--brass); }
+  .table-card .badge{ font-size:10px; padding:2px 7px; border-radius:999px; background:var(--brass); color:var(--bg); }
+  .table-card .status{ font-size:12px; color:var(--dim); display:flex; align-items:center; gap:4px; margin-top:6px;}
+  .table-card .amt{ margin-top:8px; color:var(--brass); font-size:14px; }
+  .sync-note{ font-size:11px; color:var(--dim); display:flex; align-items:center; gap:5px; }
+  .sync-note.err{ color:var(--chili); }
+
+  /* ---------- order screen ---------- */
+  .order-wrap{ display:flex; flex-direction:column; }
+  @media(min-width:860px){ .order-wrap{ flex-direction:row; } }
+  .menu-col{ flex:3; padding:16px; }
+  .bill-col{ flex:2; padding:16px; border-top:1px solid var(--line); }
+  @media(min-width:860px){ .bill-col{ border-top:none; border-left:1px solid var(--line);} }
+
+  .cat-tabs{ display:flex; gap:8px; overflow-x:auto; margin-bottom:12px; padding-bottom:4px;}
+  .cat-tabs button{ white-space:nowrap; padding:9px 14px; border-radius:10px; background:var(--panel); color:var(--text); font-size:13px; display:flex; gap:6px; align-items:center;}
+  .cat-tabs button.active{ background:var(--brass); color:var(--bg); }
+
+  .search-box{ width:100%; padding:10px 12px; border-radius:10px; background:var(--panelAlt); border:1px solid var(--line); color:var(--text); font-size:13px; margin-bottom:12px; }
+
+  .menu-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  .menu-card{ border-radius:10px; overflow:hidden; background:var(--panel); border:1px solid var(--line); }
+  .menu-card .thumb{ width:100%; height:80px; background:var(--panelAlt); display:flex; align-items:center; justify-content:center; font-size:34px; overflow:hidden; }
+  .menu-card .thumb img{ width:100%; height:100%; object-fit:cover; }
+  .menu-card .info{ padding:10px; cursor:pointer; }
+  .menu-card .info .name{ font-size:13px; margin-bottom:3px; }
+  .menu-card .info .price{ font-size:12px; color:var(--brass); }
+  .menu-card .info .stock{ font-size:10px; color:var(--dim); margin-top:2px;}
+  .menu-card .info .stock.low{ color:var(--chili); }
+  .menu-card .actions{ display:flex; border-top:1px solid var(--line); }
+  .menu-card .actions button{ flex:1; background:transparent; color:var(--dim); font-size:10px; padding:6px 0; display:flex; align-items:center; justify-content:center; gap:3px; }
+  .menu-card .actions button.danger{ color:var(--chili); }
+  .menu-card .actions button+button{ border-left:1px solid var(--line); }
+  .add-item-card{ border-radius:10px; border:1px dashed var(--dim); color:var(--dim); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:26px 0; font-size:12px; background:transparent; }
+
+  .bill-line{ border-radius:10px; padding:10px; margin-bottom:8px; background:var(--panel); border:1px solid var(--line); }
+  .bill-line.cancelled{ background:transparent; border-color:var(--chili); opacity:0.5; }
+  .bill-line .top{ display:flex; justify-content:space-between; font-size:13px; }
+  .bill-line .note{ font-size:11px; color:var(--dim); margin-top:4px; display:flex; gap:4px; align-items:center;}
+  .bill-line .qty-row{ display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+  .qty-btn{ width:24px; height:24px; border-radius:6px; background:var(--panelAlt); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .tag-btn{ font-size:9px; padding:3px 6px; border-radius:6px; background:var(--panelAlt); color:var(--dim); }
+  .tag-btn.active{ background:var(--brass); color:var(--bg); }
+  .sent-row{ display:flex; justify-content:space-between; margin-top:8px; font-size:11px; }
+
+  .bill-tab{ padding:7px 12px; border-radius:8px; font-size:13px; background:var(--panelAlt); color:var(--text); border:1px solid var(--line); }
+  .bill-tab.active{ background:var(--brass); color:var(--bg); }
+
+  /* ---------- modal ---------- */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .modal{ width:100%; max-width:380px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; max-height:90vh; overflow-y:auto; }
+  .modal.danger{ border-color:var(--chili); }
+  .modal h3{ font-size:14px; margin:0; }
+  .modal .mtop{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .field{ font-size:12px; color:var(--dim); display:block; margin-bottom:10px; }
+  .field input, .field select{ width:100%; margin-top:5px; padding:9px; border-radius:8px; background:var(--panelAlt); color:var(--text); border:1px solid var(--line); font-size:13px; }
+  .modal .err{ font-size:12px; color:var(--chili); margin-bottom:8px; }
+  .qr-box{ background:#fff; padding:10px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin:10px 0; }
+
+  /* ---------- reports ---------- */
+  .tabs-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:16px;}
+  .tabs-row button{ white-space:nowrap; padding:8px 12px; border-radius:10px; background:var(--panel); color:var(--text); font-size:12px; display:flex; gap:6px; align-items:center;}
+  .tabs-row button.active{ background:var(--brass); color:var(--bg); }
+  .stat-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; max-width:640px; }
+  @media(min-width:600px){ .stat-grid{ grid-template-columns:repeat(4,1fr);} }
+  .stat-card{ border-radius:10px; padding:12px; background:var(--panel); border:1px solid var(--line); }
+  .stat-card .label{ font-size:11px; color:var(--dim); margin-bottom:4px;}
+  .stat-card .value{ font-size:16px; }
+  .list-row{ display:flex; justify-content:space-between; align-items:center; border-radius:10px; padding:10px 12px; background:var(--panel); border:1px solid var(--line); margin-bottom:8px; max-width:640px; }
+  .rank-group h3{ font-size:13px; display:flex; gap:6px; align-items:center; margin-bottom:8px;}
+  .barcode-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; max-width:640px;}
+  .barcode-card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:6px;}
+  .void-card{ border-radius:10px; padding:10px; background:var(--panel); border:1px solid var(--chili); font-size:12px; margin-bottom:8px; max-width:640px;}
+
+  /* ---------- checkout ---------- */
+  .checkout-wrap{ max-width:420px; margin:0 auto; padding:16px; }
+  .receipt-box{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  .receipt-line{ display:flex; justify-content:space-between; font-size:13px; padding:3px 0; }
+  .field-2col{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .method-row{ display:flex; gap:8px; margin:10px 0; }
+  .method-row button{ flex:1; padding:9px; border-radius:8px; background:var(--panel); color:var(--text); font-size:13px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .method-row button.active{ background:var(--brass); color:var(--bg); }
+  .net-box{ background:var(--panelAlt); border-radius:10px; padding:12px; margin:10px 0; }
+  .net-box .row{ justify-content:space-between; font-size:13px; padding:2px 0;}
+
+  #print-area{ display:none; }
+  @media print{
+    body *{ visibility:hidden; }
+    #print-area, #print-area *{ visibility:visible; }
+    #print-area{ display:block; position:absolute; top:0; left:0; width:100%; padding:20px; color:#000; background:#fff; }
+    #print-area .p-line{ display:flex; justify-content:space-between; font-size:13px; padding:2px 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div id="print-area">
+  <h2 id="p-title" style="text-align:center;margin:0 0 4px;"></h2>
+  <p id="p-sub" style="text-align:center;margin:0 0 14px;font-size:12px;"></p>
+  <hr/>
+  <div id="p-lines"></div>
+  <hr/>
+  <div id="p-total" style="font-weight:bold;"></div>
+  <p id="p-thanks" style="text-align:center;margin-top:20px;font-size:12px;"></p>
+</div>
+
+<script>
+/* =========================================================
+   ໂຕນສີ / constants
+========================================================= */
+const LANGS = [
+  { id:"lo", label:"ລາວ" }, { id:"en", label:"English" }, { id:"zh", label:"中文" },
+  { id:"vi", label:"Tiếng Việt" }, { id:"th", label:"ไทย" },
+];
+
+const STR = {
+  appTitle:{lo:"ຜັງໂຕະ",en:"Table Floor",zh:"餐桌总览",vi:"Sơ đồ bàn",th:"ผังโต๊ะ"},
+  appSubtitle:{lo:"ແຕະໂຕະເພື່ອເປີດ ຫຼື ຮັບອໍເດີ",en:"Tap a table to open or take an order",zh:"点击餐桌开台或点餐",vi:"Chạm vào bàn để mở hoặc gọi món",th:"แตะโต๊ะเพื่อเปิดหรือรับออเดอร์"},
+  occupied:{lo:"ກຳລັງໃຊ້ງານ",en:"Occupied",zh:"使用中",vi:"Đang dùng",th:"กำลังใช้งาน"},
+  vacant:{lo:"ວ່າງ",en:"Vacant",zh:"空闲",vi:"Trống",th:"ว่าง"},
+  bills:{lo:"ບິນ",en:"bills",zh:"账单",vi:"hóa đơn",th:"บิล"},
+  newBill:{lo:"ບິນໃໝ່",en:"New bill",zh:"新账单",vi:"Hóa đơn mới",th:"บิลใหม่"},
+  voidBill:{lo:"ຍົກເລີກບິນນີ້",en:"Void this bill",zh:"作废此账单",vi:"Hủy hóa đơn này",th:"ยกเลิกบิลนี้"},
+  noItems:{lo:"ຍັງບໍ່ມີລາຍການ — ແຕະເມນູເພື່ອເພີ່ມ",en:"No items yet — tap a menu item",zh:"暂无点餐 — 点击菜单添加",vi:"Chưa có món — chạm để thêm",th:"ยังไม่มีรายการ — แตะเมนู"},
+  sentToKitchen:{lo:"ສົ່ງເຂົ້າຄົວແລ້ວ",en:"Sent to kitchen",zh:"已送厨房",vi:"Đã gửi bếp",th:"ส่งเข้าครัวแล้ว"},
+  cancel:{lo:"ຍົກເລີກ",en:"Cancel",zh:"取消",vi:"Hủy",th:"ยกเลิก"},
+  sendToKitchen:{lo:"ສົ່ງເຂົ້າຄົວ",en:"Send to kitchen",zh:"送单到厨房",vi:"Gửi bếp",th:"ส่งเข้าครัว"},
+  checkBill:{lo:"ເຊັກບິນ",en:"Check bill",zh:"结账",vi:"Tính tiền",th:"เช็คบิล"},
+  total:{lo:"ລວມ",en:"Total",zh:"合计",vi:"Tổng",th:"รวม"},
+  grandTotal:{lo:"ຍອດລວມ",en:"Subtotal",zh:"小计",vi:"Tổng cộng",th:"ยอดรวม"},
+  discount:{lo:"ສ່ວນຫຼຸດ",en:"Discount",zh:"折扣",vi:"Giảm giá",th:"ส่วนลด"},
+  tip:{lo:"ຄ່າທິບ",en:"Tip",zh:"小费",vi:"Tiền boa",th:"ค่าทิป"},
+  cash:{lo:"ເງິນສົດ",en:"Cash",zh:"现金",vi:"Tiền mặt",th:"เงินสด"},
+  transfer:{lo:"ເງິນໂອນ",en:"Transfer",zh:"转账",vi:"Chuyển khoản",th:"โอนเงิน"},
+  amountReceived:{lo:"ຮັບເງິນມາ",en:"Amount received",zh:"实收金额",vi:"Số tiền nhận",th:"รับเงินมา"},
+  netTotal:{lo:"ຍອດສຸດທິ",en:"Net total",zh:"应付金额",vi:"Thành tiền",th:"ยอดสุทธิ"},
+  change:{lo:"ເງິນທອນ",en:"Change",zh:"找零",vi:"Tiền thối",th:"เงินทอน"},
+  confirmPay:{lo:"ຢືນຢັນຮັບເງິນ ແລະ ປິດບິນ",en:"Confirm payment & close bill",zh:"确认收款并结账",vi:"Xác nhận & đóng hóa đơn",th:"ยืนยันและปิดบิล"},
+  billItems:{lo:"ລາຍການບິນ",en:"Bill items",zh:"账单明细",vi:"Chi tiết hóa đơn",th:"รายการบิล"},
+  addImage:{lo:"ຮູບ",en:"Photo",zh:"图片",vi:"Ảnh",th:"รูป"},
+  editItem:{lo:"ແກ້ໄຂ",en:"Edit",zh:"编辑",vi:"Sửa",th:"แก้ไข"},
+  deleteItem:{lo:"ລົບ",en:"Delete",zh:"删除",vi:"Xóa",th:"ลบ"},
+  addNewItem:{lo:"ເພີ່ມສິນຄ້າ",en:"Add item",zh:"添加菜品",vi:"Thêm món",th:"เพิ่มสินค้า"},
+  itemNameLabel:{lo:"ຊື່ສິນຄ້າ",en:"Item name",zh:"菜品名称",vi:"Tên món",th:"ชื่อสินค้า"},
+  priceLabel:{lo:"ລາຄາຂາຍ (₭)",en:"Selling price (₭)",zh:"售价 (₭)",vi:"Giá bán (₭)",th:"ราคาขาย (₭)"},
+  costLabel2:{lo:"ຕົ້ນທຶນຕໍ່ໜ່ວຍ (₭)",en:"Cost/unit (₭)",zh:"单位成本 (₭)",vi:"Giá vốn/đv (₭)",th:"ต้นทุนต่อหน่วย (₭)"},
+  stockLabel2:{lo:"ຈຳນວນສະຕັອກ",en:"Stock qty",zh:"库存数量",vi:"Tồn kho",th:"จำนวนสต็อก"},
+  save:{lo:"ບັນທຶກ",en:"Save",zh:"保存",vi:"Lưu",th:"บันทึก"},
+  add:{lo:"ເພີ່ມ",en:"Add",zh:"添加",vi:"Thêm",th:"เพิ่ม"},
+  delete:{lo:"ລົບ",en:"Delete",zh:"删除",vi:"Xóa",th:"ลบ"},
+  close:{lo:"ປິດ",en:"Close",zh:"关闭",vi:"Đóng",th:"ปิด"},
+  staffNameLabel:{lo:"ຊື່ພະນັກງານ",en:"Staff name",zh:"员工姓名",vi:"Tên nhân viên",th:"ชื่อพนักงาน"},
+  reasonLabel:{lo:"ເຫດຜົນ",en:"Reason",zh:"原因",vi:"Lý do",th:"เหตุผล"},
+  fieldRequired:{lo:"ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ",en:"Please fill in all fields",zh:"请填写完整信息",vi:"Vui lòng điền đầy đủ",th:"กรุณากรอกข้อมูลให้ครบ"},
+  reports:{lo:"ລາຍງານ",en:"Reports",zh:"报表",vi:"Báo cáo",th:"รายงาน"},
+  overview:{lo:"ພາບລວມ",en:"Overview",zh:"概览",vi:"Tổng quan",th:"ภาพรวม"},
+  revenue:{lo:"ຍອດຂາຍ",en:"Revenue",zh:"营业额",vi:"Doanh thu",th:"ยอดขาย"},
+  costLabel:{lo:"ຕົ້ນທຶນ",en:"Cost",zh:"成本",vi:"Chi phí vốn",th:"ต้นทุน"},
+  profitLabel:{lo:"ກຳໄລ",en:"Profit",zh:"利润",vi:"Lợi nhuận",th:"กำไร"},
+  transactionsCount:{lo:"ຈຳນວນບິນປິດແລ້ວ",en:"Closed bills",zh:"已结账单数",vi:"Hóa đơn đã đóng",th:"บิลที่ปิดแล้ว"},
+  stockLabel:{lo:"ສິນຄ້າຄົງເຫຼືອ",en:"Stock remaining",zh:"库存",vi:"Tồn kho",th:"สินค้าคงเหลือ"},
+  bestSellers:{lo:"ສິນຄ້າຂາຍດີ",en:"Best sellers",zh:"畅销商品",vi:"Bán chạy",th:"สินค้าขายดี"},
+  mediumSellers:{lo:"ຂາຍປານກາງ",en:"Medium sellers",zh:"中等销量",vi:"Bán trung bình",th:"ขายปานกลาง"},
+  worstSellers:{lo:"ຂາຍບໍ່ດີ",en:"Slow sellers",zh:"滞销商品",vi:"Bán chậm",th:"ขายไม่ดี"},
+  barcodes:{lo:"ບາໂຄ້ດສິນຄ້າ",en:"Barcodes",zh:"条形码",vi:"Mã vạch",th:"บาร์โค้ด"},
+  voidLog:{lo:"ປະຫວັດຍົກເລີກ",en:"Void log",zh:"作废记录",vi:"Nhật ký hủy",th:"ประวัติยกเลิก"},
+  salesHistory:{lo:"ປະຫວັດການຂາຍ",en:"Sales history",zh:"销售记录",vi:"Lịch sử bán",th:"ประวัติการขาย"},
+  customers:{lo:"ລູກຄ້າ",en:"Customers",zh:"客户",vi:"Khách hàng",th:"ลูกค้า"},
+  qtySold:{lo:"ຈຳນວນຂາຍ",en:"Qty sold",zh:"销售数量",vi:"SL đã bán",th:"จำนวนขาย"},
+  unitsLeft:{lo:"ໜ່ວຍ",en:"units",zh:"件",vi:"đơn vị",th:"หน่วย"},
+  lowStock:{lo:"ໃກ້ໝົດ",en:"Low",zh:"偏低",vi:"Sắp hết",th:"ใกล้หมด"},
+  receiveStock:{lo:"ຮັບເຂົ້າ",en:"Receive stock",zh:"入库",vi:"Nhập kho",th:"รับเข้า"},
+  receiveStockTitle:{lo:"ຮັບສິນຄ້າເຂົ້າສະຕັອກ",en:"Receive stock",zh:"商品入库",vi:"Nhập hàng vào kho",th:"รับสินค้าเข้าสต็อก"},
+  qtyToReceive:{lo:"ຈຳນວນທີ່ຮັບເຂົ້າ",en:"Quantity received",zh:"入库数量",vi:"Số lượng nhập",th:"จำนวนที่รับเข้า"},
+  noSalesYet:{lo:"ຍັງບໍ່ມີຍອດຂາຍ",en:"No sales recorded yet",zh:"尚无销售记录",vi:"Chưa có dữ liệu bán",th:"ยังไม่มียอดขาย"},
+  noVoidsYet:{lo:"ຍັງບໍ່ມີການຍົກເລີກ",en:"No voids recorded",zh:"暂无作废记录",vi:"Chưa có mục hủy",th:"ยังไม่มีการยกเลิก"},
+  noCustomersYet:{lo:"ຍັງບໍ່ມີລູກຄ້າ",en:"No customers yet",zh:"暂无客户",vi:"Chưa có khách hàng",th:"ยังไม่มีลูกค้า"},
+  who:{lo:"ໂຕະ/ບິນ",en:"Table/Bill",zh:"桌号/账单",vi:"Bàn/Hóa đơn",th:"โต๊ะ/บิล"},
+  staff:{lo:"ພະນັກງານ",en:"Staff",zh:"员工",vi:"Nhân viên",th:"พนักงาน"},
+  voidItemType:{lo:"ຍົກເລີກລາຍການ",en:"Item void",zh:"取消单品",vi:"Hủy món",th:"ยกเลิกรายการ"},
+  voidBillType:{lo:"ຍົກເລີກທັງບິນ",en:"Full bill void",zh:"整单作废",vi:"Hủy cả hóa đơn",th:"ยกเลิกทั้งบิล"},
+  loading:{lo:"ກຳລັງໂຫຼດຂໍ້ມູນ...",en:"Loading data...",zh:"正在加载数据...",vi:"Đang tải dữ liệu...",th:"กำลังโหลดข้อมูล..."},
+  syncedNote:{lo:"ຂໍ້ມູນຖືກເກັບໄວ້ຖາວອນ ແລະ ໃຊ້ຮ່ວມກັນທຸກອຸປະກອນ",en:"Saved permanently & shared across devices",zh:"永久保存并跨设备共享",vi:"Lưu vĩnh viễn & dùng chung mọi thiết bị",th:"บันทึกถาวรและใช้ร่วมกันทุกอุปกรณ์"},
+  syncErrorNote:{lo:"⚠ ບັນທຶກບໍ່ສຳເລັດ",en:"⚠ Save failed",zh:"⚠ 保存失败",vi:"⚠ Lưu thất bại",th:"⚠ บันทึกไม่สำเร็จ"},
+  resetAllData:{lo:"ລ້າງຂໍ້ມູນທັງໝົດ",en:"Reset all data",zh:"重置所有数据",vi:"Đặt lại dữ liệu",th:"ล้างข้อมูลทั้งหมด"},
+  search:{lo:"ຄົ້ນຫາສິນຄ້າ...",en:"Search products...",zh:"搜索商品...",vi:"Tìm món...",th:"ค้นหาสินค้า..."},
+  print:{lo:"ພິມໃບບິນ",en:"Print invoice",zh:"打印发票",vi:"In hóa đơn",th:"พิมพ์ใบเสร็จ"},
+  generateQr:{lo:"ສ້າງ QR ຮັບເງິນໂອນ",en:"Generate payment QR",zh:"生成收款二维码",vi:"Tạo QR nhận tiền",th:"สร้าง QR รับโอนเงิน"},
+  bankSettings:{lo:"ຕັ້ງຄ່າບັນຊີທະນາຄານ",en:"Bank account settings",zh:"银行账户设置",vi:"Cài đặt tài khoản ngân hàng",th:"ตั้งค่าบัญชีธนาคาร"},
+  bankName:{lo:"ຊື່ທະນາຄານ",en:"Bank name",zh:"银行名称",vi:"Tên ngân hàng",th:"ชื่อธนาคาร"},
+  accountName:{lo:"ຊື່ບັນຊີ",en:"Account name",zh:"账户名称",vi:"Tên tài khoản",th:"ชื่อบัญชี"},
+  accountNumber:{lo:"ເລກບັນຊີ",en:"Account number",zh:"账号",vi:"Số tài khoản",th:"เลขบัญชี"},
+  qrDisclaimer:{
+    lo:"QR ນີ້ເປັນການເຂົ້າລະຫັດຂໍ້ມູນບັນຊີ+ຍອດເງິນເປັນຂໍ້ຄວາມທຳມະດາ (ບໍ່ແມ່ນມາດຕະຖານ LaoQR ຂອງທະນາຄານ) ໃຊ້ເປັນຂໍ້ມູນອ້າງອີງ ຫຼືສະແກນດ້ວຍແອັບອ່ານ QR ທົ່ວໄປ. ຖ້າຕ້ອງການ QR ໂອນເງິນຂ້າມທະນາຄານແບບທາງການ ຕ້ອງເຊື່ອມຕໍ່ກັບທະນາຄານ/ຜູ້ໃຫ້ບໍລິການຊຳລະເງິນໂດຍກົງ.",
+    en:"This QR encodes the account + amount as plain text (not an official bank LaoQR standard) — a reference/backup QR. For certified cross-bank scan-to-pay, integrate directly with a bank or payment provider.",
+    zh:"此二维码仅将账户和金额编码为普通文本（非官方银行LaoQR标准），仅供参考。如需官方跨行扫码支付，请直接对接银行或支付服务商。",
+    vi:"Mã QR này chỉ mã hóa tài khoản + số tiền dạng văn bản thường (không phải chuẩn LaoQR chính thức) — dùng để tham khảo. Để có QR thanh toán liên ngân hàng chính thức, cần tích hợp trực tiếp với ngân hàng/nhà cung cấp thanh toán.",
+    th:"QR นี้เข้ารหัสบัญชี+ยอดเงินเป็นข้อความธรรมดา (ไม่ใช่มาตรฐาน LaoQR ของธนาคาร) ใช้เป็นข้อมูลอ้างอิงเท่านั้น หากต้องการ QR โอนเงินข้ามธนาคารแบบทางการ ต้องเชื่อมต่อกับธนาคาร/ผู้ให้บริการชำระเงินโดยตรง",
+  },
+  addCustomer:{lo:"ເພີ່ມລູກຄ້າ",en:"Add customer",zh:"添加客户",vi:"Thêm khách hàng",th:"เพิ่มลูกค้า"},
+  customerName:{lo:"ຊື່ລູກຄ້າ",en:"Customer name",zh:"客户姓名",vi:"Tên khách hàng",th:"ชื่อลูกค้า"},
+  customerPhone:{lo:"ເບີໂທ",en:"Phone",zh:"电话",vi:"Số điện thoại",th:"เบอร์โทร"},
+  customerNote:{lo:"ໝາຍເຫດ",en:"Note",zh:"备注",vi:"Ghi chú",th:"หมายเหตุ"},
+  sheetSettings:{lo:"ເຊື່ອມຕໍ່ Google Sheet",en:"Connect Google Sheet",zh:"连接 Google 表格",vi:"Kết nối Google Sheet",th:"เชื่อมต่อ Google Sheet"},
+  sheetUrlLabel:{lo:"Web App URL (ຈາກ Apps Script)",en:"Web App URL (from Apps Script)",zh:"Web App URL（来自 Apps Script）",vi:"URL Web App (từ Apps Script)",th:"Web App URL (จาก Apps Script)"},
+  sheetSave:{lo:"ບັນທຶກການເຊື່ອມຕໍ່",en:"Save connection",zh:"保存连接",vi:"Lưu kết nối",th:"บันทึกการเชื่อมต่อ"},
+  sheetTest:{lo:"ທົດສອບການເຊື່ອມຕໍ່",en:"Test connection",zh:"测试连接",vi:"Kiểm tra kết nối",th:"ทดสอบการเชื่อมต่อ"},
+  sheetTestSending:{lo:"ກຳລັງທົດສອບ...",en:"Testing...",zh:"测试中...",vi:"Đang kiểm tra...",th:"กำลังทดสอบ..."},
+  sheetTestOk:{lo:"✔ ເຊື່ອມຕໍ່ສຳເລັດ",en:"✔ Connected successfully",zh:"✔ 连接成功",vi:"✔ Kết nối thành công",th:"✔ เชื่อมต่อสำเร็จ"},
+  sheetTestFail:{lo:"✕ ເຊື່ອມຕໍ່ບໍ່ສຳເລັດ — ກວດສອບ URL ແລະການຕັ້ງຄ່າ Deploy",en:"✕ Failed — check the URL and deployment settings",zh:"✕ 连接失败 — 请检查网址和部署设置",vi:"✕ Thất bại — kiểm tra URL và cài đặt Deploy",th:"✕ ไม่สำเร็จ — ตรวจสอบ URL และการตั้งค่า Deploy"},
+  sheetConnectedNote:{lo:"ເຊື່ອມຕໍ່ແລ້ວ — ຂໍ້ມູນຈະຊິງຄ໌ອັດຕະໂນມັດລະຫວ່າງທຸກອຸປະກອນ",en:"Connected — data syncs automatically across all devices",zh:"已连接 — 数据将在所有设备间自动同步",vi:"Đã kết nối — dữ liệu tự động đồng bộ giữa các thiết bị",th:"เชื่อมต่อแล้ว — ข้อมูลจะซิงค์อัตโนมัติระหว่างทุกอุปกรณ์"},
+  sheetNotConnected:{lo:"ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Google Sheet — ຂໍ້ມູນຈະບັນທຶກສະເພາະໃນອຸປະກອນນີ້",en:"Not connected yet — data stays only on this device",zh:"尚未连接 — 数据仅保存在本设备",vi:"Chưa kết nối — dữ liệu chỉ lưu trên thiết bị này",th:"ยังไม่เชื่อมต่อ — ข้อมูลจะบันทึกเฉพาะอุปกรณ์นี้"},
+  sheetDisconnect:{lo:"ຍົກເລີກການເຊື່ອມຕໍ່",en:"Disconnect",zh:"断开连接",vi:"Ngắt kết nối",th:"ยกเลิกการเชื่อมต่อ"},
+  syncNotConfigured:{lo:"ຍັງບໍ່ໄດ້ຕັ້ງຄ່າ Sync",en:"Sync not set up",zh:"尚未设置同步",vi:"Chưa thiết lập đồng bộ",th:"ยังไม่ได้ตั้งค่า Sync"},
+};
+function t(key,lang){ return (STR[key] && (STR[key][lang]||STR[key].lo)) || key; }
+
+const CATEGORIES = [
+  { id:"seafood", emoji:"🐟", label:{lo:"ອາຫານທະເລ",en:"Seafood",zh:"海鲜",vi:"Hải sản",th:"อาหารทะเล"} },
+  { id:"meat", emoji:"🥩", label:{lo:"ຊີ້ນ",en:"Meat",zh:"肉类",vi:"Thịt",th:"เนื้อสัตว์"} },
+  { id:"salad", emoji:"🥗", label:{lo:"ສະຫຼັດ / ອື່ນໆ",en:"Salad / Other",zh:"沙拉/其他",vi:"Gỏi / Khác",th:"สลัด/อื่นๆ"} },
+  { id:"drink", emoji:"🥤", label:{lo:"ເຄື່ອງດື່ມ",en:"Drinks",zh:"饮料",vi:"Đồ uống",th:"เครื่องดื่ม"} },
+];
+
+/* counters */
+let skuCounter = 100001;
+function nextSku(){ return String(skuCounter++); }
+function uid(){ return Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8); }
+
+function defaultMenu(){
+  skuCounter = 100001;
+  return [
+    { id:"m1", cat:"seafood", price:45000, cost:27000, stock:40, sku:nextSku(), emoji:"🍤", image:null, name:{lo:"ກຸ້ງເຜົາ",en:"Grilled Shrimp",zh:"烤虾",vi:"Tôm nướng",th:"กุ้งเผา"} },
+    { id:"m2", cat:"seafood", price:38000, cost:22000, stock:35, sku:nextSku(), emoji:"🐟", image:null, name:{lo:"ປາຈືນນ້ຳປາ",en:"Fried Fish",zh:"鱼露炸鱼",vi:"Cá chiên nước mắm",th:"ปลาทอดน้ำปลา"} },
+    { id:"m3", cat:"seafood", price:40000, cost:24000, stock:30, sku:nextSku(), emoji:"🦪", image:null, name:{lo:"ຫອຍແມງພູ້ຜັດ",en:"Stir-fried Mussels",zh:"炒青口",vi:"Sò xào",th:"หอยแมลงภู่ผัด"} },
+    { id:"m4", cat:"meat", price:30000, cost:17000, stock:50, sku:nextSku(), emoji:"🥗", image:null, name:{lo:"ລາບຊີ້ນໝູ",en:"Pork Larb",zh:"猪肉拉普",vi:"Lạp thịt heo",th:"ลาบหมู"} },
+    { id:"m5", cat:"meat", price:50000, cost:32000, stock:25, sku:nextSku(), emoji:"🥩", image:null, name:{lo:"ຊີ້ນງົວຍ່າງ",en:"Grilled Beef",zh:"烤牛肉",vi:"Bò nướng",th:"เนื้อย่าง"} },
+    { id:"m6", cat:"meat", price:28000, cost:15000, stock:45, sku:nextSku(), emoji:"🍗", image:null, name:{lo:"ໄກ່ທອດ",en:"Fried Chicken",zh:"炸鸡",vi:"Gà chiên",th:"ไก่ทอด"} },
+    { id:"m7", cat:"salad", price:20000, cost:9000, stock:60, sku:nextSku(), emoji:"🥭", image:null, name:{lo:"ຕຳໝາກຫຸ່ງ",en:"Papaya Salad",zh:"青木瓜沙拉",vi:"Gỏi đu đủ",th:"ตำมะละกอ"} },
+    { id:"m8", cat:"salad", price:18000, cost:8000, stock:55, sku:nextSku(), emoji:"🥬", image:null, name:{lo:"ຜັກບົ້ງໄຟແດງ",en:"Stir-fried Morning Glory",zh:"炒空心菜",vi:"Rau muống xào",th:"ผักบุ้งไฟแดง"} },
+    { id:"m9", cat:"drink", price:15000, cost:8000, stock:100, sku:nextSku(), emoji:"🍺", image:null, name:{lo:"ເບຍລາວ",en:"Beerlao",zh:"老挝啤酒",vi:"Bia Lào",th:"เบียร์ลาว"} },
+    { id:"m10", cat:"drink", price:12000, cost:5000, stock:40, sku:nextSku(), emoji:"🥥", image:null, name:{lo:"ນ້ຳໝາກພ້າວ",en:"Coconut Juice",zh:"椰子水",vi:"Nước dừa",th:"น้ำมะพร้าว"} },
+    { id:"m11", cat:"drink", price:8000, cost:3000, stock:80, sku:nextSku(), emoji:"🥤", image:null, name:{lo:"ໂຊດາ",en:"Soda",zh:"苏打水",vi:"Soda",th:"โซดา"} },
+  ];
+}
+function defaultTables(){
+  return Array.from({length:10},(_,i)=>({ id:i+1, name:String(i+1), bills:[] }));
+}
+function newBill(label){ return { id:uid(), label, items:[], status:"open" }; }
+function money(n){ return Math.round(n).toLocaleString("lo-LA") + " ₭"; }
+
+const NOTE_TAGS = ["ກອບ","ສົດໃໝ່","ຫອມ","ນຸ່ມ","ບໍ່ເຜັດ"];
+
+const CODE39 = {
+  "0":"000110100","1":"100100001","2":"001100001","3":"101100000","4":"000110001",
+  "5":"100110000","6":"001110000","7":"000100101","8":"100100100","9":"001100100","*":"010010100",
+};
+function barcodeSvg(value, height){
+  height = height || 44;
+  const chars = ("*"+value+"*").split("");
+  const NARROW=2, WIDE=5; let x=0; const bars=[];
+  chars.forEach(ch=>{
+    const pattern = CODE39[ch] || CODE39["0"];
+    for(let i=0;i<pattern.length;i++){
+      const wide = pattern[i]==="1"; const w = wide?WIDE:NARROW; const isBar = i%2===0;
+      if(isBar) bars.push({x,w});
+      x+=w;
+    }
+    x+=NARROW;
+  });
+  const totalWidth = x;
+  let rects = bars.map(b=>`<rect x="${b.x}" y="4" width="${b.w}" height="${height-20}" fill="#111"/>`).join("");
+  return `<svg width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}">
+    <rect x="0" y="0" width="${totalWidth}" height="${height}" fill="#fff"/>${rects}
+    <text x="${totalWidth/2}" y="${height-5}" font-size="10" text-anchor="middle" fill="#111" font-family="monospace">${value}</text>
+  </svg>`;
+}
+
+/* =========================================================
+   STATE
+========================================================= */
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbwj02zEn5yPHcIkklnT1VmpiHsJkr_LBLPJ7pylG3vrVjBDwy1V1mPFNIMX1JdqGXz65g/exec";
+function loadSheetUrlLocal(){
+  try{
+    const v = localStorage.getItem("pos-sheet-url");
+    if(v !== null) return v; // ຜູ້ໃຊ້ເຄີຍຕັ້ງຄ່າ ຫຼື ຍົກເລີກການເຊື່ອມຕໍ່ເອງມາກ່ອນແລ້ວ — ເຄົາລົບຄ່ານັ້ນ
+    return DEFAULT_SHEET_URL;
+  }catch(e){ return DEFAULT_SHEET_URL; }
+}
+function saveSheetUrlLocal(url){ try{ localStorage.setItem("pos-sheet-url", url||""); }catch(e){} }
+
+const state = {
+  lang:"lo",
+  menu: defaultMenu(),
+  tables: defaultTables(),
+  customers: [],
+  salesLog: [],
+  voidLog: [],
+  bankAccounts: [],
+  view: { screen:"floor" },
+  activeCat:"seafood",
+  reportTab:"overview",
+  searchTerm:"",
+  loaded:false,
+  syncError:false,
+  modal:null,
+  sheetUrl: loadSheetUrlLocal(),
+  syncVersion: 0,
+};
+const LOCAL_CACHE_KEY = "pos-local-cache-v2";
+let syncPollTimer = null;
+let pushDebounceTimer = null;
+let pendingPush = false;
+
+function activeTable(){ return state.tables.find(tb=>tb.id===state.view.tableId); }
+function activeBill(){ const tb=activeTable(); return tb && tb.bills.find(b=>b.id===state.view.billId); }
+function billTotal(bill){
+  if(!bill) return 0;
+  return bill.items.filter(it=>it.status!=="cancelled").reduce((s,it)=>s+it.price*it.qty,0);
+}
+function imageSrcOf(item){ return item.image || null; }
+
+/* =========================================================
+   PERSISTENCE
+========================================================= */
+function hotStatePayload(){
+  return { tables: state.tables, menu: state.menu, customers: state.customers, bankAccounts: state.bankAccounts };
+}
+function seedCountersFromState(){
+  const allSkus = state.menu.map(m=>parseInt(m.sku,10)).filter(n=>!isNaN(n));
+  skuCounter = allSkus.length ? Math.max(...allSkus)+1 : 100001;
+}
+function saveLocalCache(){
+  try{
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({
+      tables:state.tables, menu:state.menu, customers:state.customers, bankAccounts:state.bankAccounts,
+      salesLog:state.salesLog, voidLog:state.voidLog, syncVersion:state.syncVersion,
+    }));
+  }catch(e){ /* localStorage ອາດເຕັມ ຫຼືປິດໄວ້ — ຂ້າມໄປ */ }
+}
+function loadLocalCache(){
+  try{
+    const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+    if(!raw) return false;
+    const data = JSON.parse(raw);
+    if(data.tables) state.tables = data.tables;
+    if(data.menu) state.menu = data.menu;
+    if(data.customers) state.customers = data.customers;
+    if(data.bankAccounts) state.bankAccounts = data.bankAccounts;
+    if(data.salesLog) state.salesLog = data.salesLog;
+    if(data.voidLog) state.voidLog = data.voidLog;
+    if(typeof data.syncVersion==="number") state.syncVersion = data.syncVersion;
+    return true;
+  }catch(e){ return false; }
+}
+
+async function sheetCall(method, params, body){
+  if(!state.sheetUrl) throw new Error("no-url");
+  let url = state.sheetUrl;
+  const qs = new URLSearchParams(params||{}).toString();
+  if(qs) url += (url.includes("?")?"&":"?") + qs;
+  const opts = { method };
+  if(method==="POST"){
+    opts.headers = { "Content-Type":"text/plain;charset=utf-8" };
+    opts.body = JSON.stringify(body||{});
+  }
+  const res = await fetch(url, opts);
+  if(!res.ok) throw new Error("http-"+res.status);
+  return await res.json();
+}
+
+async function loadData(){
+  loadLocalCache();
+  seedCountersFromState();
+  state.loaded = true;
+  render();
+
+  if(state.sheetUrl){
+    await pullStateOnce({ bootstrapIfEmpty:true });
+    await refreshLogs();
+    startSyncLoop();
+  }
+}
+
+async function pullStateOnce(opts){
+  opts = opts||{};
+  try{
+    const res = await sheetCall("GET", { action:"getState" });
+    if(res && res.ok && res.state && res.version>0){
+      if(res.version !== state.syncVersion){
+        state.tables = res.state.tables || state.tables;
+        state.menu = res.state.menu || state.menu;
+        state.customers = res.state.customers || state.customers;
+        state.bankAccounts = res.state.bankAccounts || state.bankAccounts;
+        state.syncVersion = res.version;
+        seedCountersFromState();
+        saveLocalCache();
+        render();
+      }
+      state.syncError = false;
+    } else if(opts.bootstrapIfEmpty){
+      await pushHotState({ immediate:true });
+    }
+    state.syncError = false;
+  }catch(e){
+    state.syncError = true;
+  }
+  renderSyncBadgeOnly();
+}
+
+function pushHotState(opts){
+  opts = opts || {};
+  saveLocalCache();
+  if(!state.sheetUrl) return Promise.resolve();
+  if(pushDebounceTimer) clearTimeout(pushDebounceTimer);
+  const run = async ()=>{
+    try{
+      const res = await sheetCall("POST", { action:"saveState" }, { state: hotStatePayload() });
+      if(res && res.ok){ state.syncVersion = res.version; state.syncError = false; pendingPush=false; }
+      else { state.syncError = true; pendingPush=true; }
+    }catch(e){ state.syncError = true; pendingPush = true; }
+    renderSyncBadgeOnly();
+  };
+  if(opts.immediate) return run();
+  return new Promise(resolve=>{
+    pushDebounceTimer = setTimeout(()=>{ run().then(resolve); }, 600);
+  });
+}
+
+async function refreshLogs(){
+  if(!state.sheetUrl) return;
+  try{
+    const res = await sheetCall("GET", { action:"getLogs" });
+    if(res && res.ok){
+      if(Array.isArray(res.sales)) state.salesLog = res.sales;
+      if(Array.isArray(res.voids)) state.voidLog = res.voids;
+      saveLocalCache();
+      if(state.view.screen==="reports") render();
+    }
+  }catch(e){ /* ຂ້າມ — ໃຊ້ Log ທ້ອງຖິ່ນເກົ່າໄປກ່ອນ */ }
+}
+
+function startSyncLoop(){
+  if(syncPollTimer) clearInterval(syncPollTimer);
+  let tick = 0;
+  syncPollTimer = setInterval(()=>{
+    if(document.hidden) return;
+    tick++;
+    pullStateOnce({});
+    if(pendingPush) pushHotState({ immediate:true });
+    if(tick % 5 === 0) refreshLogs();
+  }, 5000);
+  document.addEventListener("visibilitychange", ()=>{
+    if(!document.hidden && state.sheetUrl){ pullStateOnce({}); }
+  });
+}
+
+function saveData(){ return pushHotState({}); }
+function persistAndRender(){ render(); saveData(); }
+
+async function appendSaleRemote(record){
+  if(!state.sheetUrl) return;
+  try{ await sheetCall("POST", { action:"appendSale" }, { record }); }catch(e){}
+}
+async function appendVoidRemote(record){
+  if(!state.sheetUrl) return;
+  try{ await sheetCall("POST", { action:"appendVoid" }, { record }); }catch(e){}
+}
+async function testSheetConnection(){
+  try{
+    const res = await sheetCall("GET", { action:"ping" });
+    return !!(res && res.ok);
+  }catch(e){ return false; }
+}
+function setSheetUrl(url){
+  state.sheetUrl = url||"";
+  saveSheetUrlLocal(state.sheetUrl);
+  if(state.sheetUrl){
+    pullStateOnce({ bootstrapIfEmpty:true }).then(()=>refreshLogs());
+    startSyncLoop();
+  } else if(syncPollTimer){
+    clearInterval(syncPollTimer); syncPollTimer=null;
+  }
+  renderSyncBadgeOnly();
+}
+function disconnectSheet(){
+  if(syncPollTimer){ clearInterval(syncPollTimer); syncPollTimer=null; }
+  state.sheetUrl = "";
+  saveSheetUrlLocal("");
+  state.syncError=false;
+  closeModal();
+}
+
+/* =========================================================
+   ACTIONS
+========================================================= */
+function setLang(l){ state.lang=l; render(); }
+function openModal(m){ state.modal=m; render(); }
+function closeModal(){ state.modal=null; render(); }
+
+function openTable(tableId){
+  const tb = state.tables.find(x=>x.id===tableId);
+  if(tb.bills.length===0) tb.bills.push(newBill("A"));
+  state.view = { screen:"order", tableId, billId: tb.bills[0].id };
+  persistAndRender();
+}
+function addBillToTable(tableId){
+  const tb = state.tables.find(x=>x.id===tableId);
+  const nextLabel = String.fromCharCode(65+tb.bills.length);
+  tb.bills.push(newBill(nextLabel));
+  persistAndRender();
+}
+function switchBill(tableId,billId){ state.view={screen:"order",tableId,billId}; render(); }
+
+function logVoid(entry){
+  const record = { id:uid(), time:new Date().toISOString(), ...entry };
+  state.voidLog.unshift(record);
+  appendVoidRemote(record);
+}
+function doVoidBill(tableId,billId,staff,reason){
+  const tb = state.tables.find(x=>x.id===tableId);
+  const bill = tb.bills.find(b=>b.id===billId);
+  logVoid({ type:"bill", who:`${tb.name} / ${bill.label}`, staff, reason });
+  tb.bills = tb.bills.filter(b=>b.id!==billId);
+  state.view = tb.bills.length ? {screen:"order",tableId,billId:tb.bills[0].id} : {screen:"floor"};
+  state.modal=null;
+  persistAndRender();
+}
+
+function addItemToBill(menuItem){
+  const bill = activeBill(); if(!bill) return;
+  const existing = bill.items.find(it=>it.menuId===menuItem.id && it.status==="draft");
+  if(existing){ existing.qty++; }
+  else{
+    bill.items.push({
+      lineId: `${menuItem.id}-${Date.now()}-${Math.random()}`,
+      menuId: menuItem.id, name: menuItem.name[state.lang]||menuItem.name.lo,
+      price: menuItem.price, cost: menuItem.cost||0, qty:1, note:"", status:"draft",
+    });
+  }
+  persistAndRender();
+}
+function changeQty(lineId,delta){
+  const bill = activeBill();
+  bill.items = bill.items.map(it=> it.lineId===lineId ? {...it, qty: Math.max(0,it.qty+delta)} : it)
+                          .filter(it=> it.qty>0 || it.status!=="draft");
+  persistAndRender();
+}
+function setNote(lineId,note){
+  const bill = activeBill();
+  const it = bill.items.find(x=>x.lineId===lineId);
+  it.note = (it.note===note) ? "" : note;
+  persistAndRender();
+}
+function sendToKitchen(){
+  const bill = activeBill();
+  bill.items.forEach(it=>{ if(it.status==="draft") it.status="sent"; });
+  persistAndRender();
+}
+function doCancelSentItem(lineId,staff,reason){
+  const bill = activeBill();
+  const line = bill.items.find(it=>it.lineId===lineId);
+  logVoid({ type:"item", who:`${activeTable().name} / ${bill.label} — ${line.name} x${line.qty}`, staff, reason });
+  line.status="cancelled"; line.cancelReason=reason;
+  state.modal=null;
+  persistAndRender();
+}
+
+function doSaveImageUrl(menuId,url){
+  const m = state.menu.find(x=>x.id===menuId); m.image=url;
+  state.modal=null; persistAndRender();
+}
+function doRemoveImage(menuId){
+  const m = state.menu.find(x=>x.id===menuId); m.image=null;
+  state.modal=null; persistAndRender();
+}
+function doUploadImageFile(menuId,file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const maxDim = 320;
+      let w=img.width, h=img.height;
+      if(w>h && w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
+      else if(h>=w && h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
+      const canvas = document.createElement("canvas");
+      canvas.width=w; canvas.height=h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      const dataUrl = canvas.toDataURL("image/jpeg",0.6);
+      const m = state.menu.find(x=>x.id===menuId);
+      if(m) m.image = dataUrl;
+      state.modal=null; persistAndRender();
+    };
+    img.onerror = ()=>{ state.modal=null; render(); };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function doEditMenuItem(menuId,fields){
+  const m = state.menu.find(x=>x.id===menuId);
+  m.price=fields.price; m.cost=fields.cost; m.stock=fields.stock;
+  m.name = {...m.name, [state.lang]: fields.name};
+  state.modal=null; persistAndRender();
+}
+function doDeleteMenuItem(menuId){
+  state.menu = state.menu.filter(x=>x.id!==menuId);
+  state.modal=null; persistAndRender();
+}
+function doAddMenuItem(cat,fields){
+  const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+  state.menu.push({
+    id, cat, price:fields.price, cost:fields.cost, stock:fields.stock, sku:nextSku(),
+    emoji:"🍽️", image:null,
+    name:{lo:fields.name,en:fields.name,zh:fields.name,vi:fields.name,th:fields.name,[state.lang]:fields.name},
+  });
+  state.modal=null; persistAndRender();
+}
+function doReceiveStock(menuId,qty){
+  const m = state.menu.find(x=>x.id===menuId);
+  m.stock = (m.stock||0) + qty;
+  state.modal=null; persistAndRender();
+}
+
+function finalizeSale(record){
+  state.salesLog.unshift(record);
+  record.items.forEach(sold=>{
+    const m = state.menu.find(x=>x.id===sold.menuId);
+    if(m) m.stock = Math.max(0,(m.stock||0)-sold.qty);
+  });
+  const tb = state.tables.find(x=>x.id===record.tableId);
+  tb.bills = tb.bills.filter(b=>b.id!==record._billId);
+  state.view = {screen:"floor"};
+  persistAndRender();
+  appendSaleRemote(record);
+}
+
+function doAddCustomer(fields){
+  state.customers.push({ id:uid(), name:fields.name, phone:fields.phone, note:fields.note });
+  state.modal=null; persistAndRender();
+}
+function doEditCustomer(id,fields){
+  const c = state.customers.find(x=>x.id===id);
+  c.name=fields.name; c.phone=fields.phone; c.note=fields.note;
+  state.modal=null; persistAndRender();
+}
+function doDeleteCustomer(id){
+  state.customers = state.customers.filter(x=>x.id!==id);
+  state.modal=null; persistAndRender();
+}
+function doSaveBankAccount(fields, editId){
+  if(editId){
+    const b = state.bankAccounts.find(x=>x.id===editId);
+    b.bankName=fields.bankName; b.accountName=fields.accountName; b.accountNumber=fields.accountNumber;
+  }else{
+    state.bankAccounts.push({ id:Date.now(), bankName:fields.bankName, accountName:fields.accountName, accountNumber:fields.accountNumber });
+  }
+  state.modal=null; persistAndRender();
+}
+function doDeleteBankAccount(id){
+  state.bankAccounts = state.bankAccounts.filter(x=>x.id!==id);
+  state.modal=null; persistAndRender();
+}
+
+function resetAllData(){
+  state.tables = defaultTables();
+  state.menu = defaultMenu();
+  state.customers = [];
+  state.salesLog = [];
+  state.voidLog = [];
+  state.bankAccounts = [];
+  skuCounter = 100001;
+  state.modal = null;
+  saveLocalCache();
+  render();
+  resetRemoteAll();
+}
+async function resetRemoteAll(){
+  if(!state.sheetUrl) return;
+  try{
+    await sheetCall("POST", { action:"resetAll" }, {});
+    state.syncVersion = 0;
+    await pushHotState({ immediate:true });
+    await refreshLogs();
+  }catch(e){ state.syncError = true; renderSyncBadgeOnly(); }
+}
+
+/* =========================================================
+   ICONS (ຫຍໍ້, ໃຊ້ emoji/svg ງ່າຍໆແທນ icon library)
+========================================================= */
+const ICO = {
+  users:"👥", cloud:"☁️", chart:"📊", box:"📦", scan:"🔳", shield:"🛡️",
+  history:"🧾", plus:"➕", minus:"➖", x:"✕", back:"←", note:"📝", ban:"🚫",
+  pencil:"✏️", trash:"🗑️", cart:"🧾", cash:"💵", bank:"🏦", printer:"🖨️", qr:"⬛",
+};
+
+/* =========================================================
+   RENDER
+========================================================= */
+function render(){
+  const app = document.getElementById("app");
+  if(!state.loaded){
+    app.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-size:14px;">${t("loading",state.lang)}</div>`;
+    return;
+  }
+  const screen = state.view.screen;
+  if(screen==="floor") app.innerHTML = renderFloor();
+  else if(screen==="order") app.innerHTML = renderOrder();
+  else if(screen==="reports") app.innerHTML = renderReports();
+  else if(screen==="checkout") app.innerHTML = renderCheckout();
+
+  attachGlobalHandlers();
+  if(state.modal) renderModal();
+  else removeModal();
+}
+function syncBadgeText(){
+  if(!state.sheetUrl) return `${ICO.cloud} ${t("syncNotConfigured",state.lang)}`;
+  if(state.syncError) return `${ICO.cloud} ${t("syncErrorNote",state.lang)}`;
+  return `${ICO.cloud} ${t("syncedNote",state.lang)}`;
+}
+function syncBadgeClass(){
+  return "sync-note" + (state.sheetUrl && state.syncError ? " err" : "");
+}
+function renderSyncBadgeOnly(){
+  const el = document.getElementById("sync-badge");
+  if(el){
+    el.className = syncBadgeClass();
+    el.innerHTML = syncBadgeText();
+  }
+}
+
+function langSwitcherHtml(){
+  return `<div class="lang-switch">🌐 ${LANGS.map(l=>`<button data-act="setlang" data-lang="${l.id}" class="${state.lang===l.id?'active':''}">${l.label}</button>`).join("")}</div>`;
+}
+
+function renderFloor(){
+  const rows = state.tables.map(tb=>{
+    const occ = tb.bills.length>0;
+    const tot = tb.bills.reduce((s,b)=>s+billTotal(b),0);
+    return `<button class="table-card ${occ?'occupied':''}" data-act="opentable" data-id="${tb.id}">
+      <div class="row between"><span>${tb.name}</span>${occ?`<span class="badge">${tb.bills.length} ${t("bills",state.lang)}</span>`:""}</div>
+      <div class="status">${ICO.users} ${occ?t("occupied",state.lang):t("vacant",state.lang)}</div>
+      ${occ?`<div class="amt">${money(tot)}</div>`:""}
+    </button>`;
+  }).join("");
+
+  return `
+  <header class="top">
+    <div class="brand">
+      <div class="logo">🍽️</div>
+      <div><h1>${t("appTitle",state.lang)}</h1><p>${t("appSubtitle",state.lang)}</p></div>
+    </div>
+    <div class="row gap3 wrap">
+      <button class="${syncBadgeClass()}" id="sync-badge" data-act="opensyncsettings" style="background:transparent;padding:0;margin:0;">${syncBadgeText()}</button>
+      <button class="btn brass" data-act="goreports">${ICO.chart} ${t("reports",state.lang)}</button>
+      ${langSwitcherHtml()}
+    </div>
+  </header>
+  <div class="table-grid">${rows}</div>
+  `;
+}
+
+function renderOrder(){
+  const tb = activeTable(); const bill = activeBill();
+  if(!tb) { state.view={screen:"floor"}; return renderFloor(); }
+  const term = state.searchTerm.trim().toLowerCase();
+  let items = state.menu.filter(m=>m.cat===state.activeCat);
+  if(term){
+    items = state.menu.filter(m => Object.values(m.name).some(n=>n.toLowerCase().includes(term)));
+  }
+
+  const catTabs = CATEGORIES.map(c=>`<button data-act="setcat" data-cat="${c.id}" class="${state.activeCat===c.id && !term?'active':''}">${c.emoji} ${c.label[state.lang]||c.label.lo}</button>`).join("");
+
+  const menuCards = items.map(m=>{
+    const src = imageSrcOf(m);
+    const low = (m.stock??0) <=10;
+    return `<div class="menu-card">
+      <div data-act="additem" data-id="${m.id}" style="cursor:pointer;">
+        <div class="thumb">${src?`<img src="${src}"/>`:`<span>${m.emoji}</span>`}</div>
+        <div class="info">
+          <div class="name">${m.name[state.lang]||m.name.lo}</div>
+          <div class="price">${money(m.price)}</div>
+          <div class="stock ${low?'low':''}">${m.stock??0} ${t("unitsLeft",state.lang)}</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button data-act="openimage" data-id="${m.id}">${ICO.box} ${t("addImage",state.lang)}</button>
+        <button data-act="openedit" data-id="${m.id}">${ICO.pencil} ${t("editItem",state.lang)}</button>
+        <button class="danger" data-act="opendelete" data-id="${m.id}">${ICO.trash} ${t("deleteItem",state.lang)}</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  const billTabs = tb.bills.map(b=>`<button class="bill-tab ${b.id===bill.id?'active':''}" data-act="switchbill" data-id="${b.id}">${b.label}</button>`).join("");
+
+  const lineRows = bill.items.map(it=>{
+    const cancelled = it.status==="cancelled";
+    return `<div class="bill-line ${cancelled?'cancelled':''}">
+      <div class="top"><span style="${cancelled?'text-decoration:line-through;':''}">${it.name}</span><span style="color:var(--brass)">${money(it.price*it.qty)}</span></div>
+      ${it.note?`<div class="note">${ICO.note} ${it.note}</div>`:""}
+      ${cancelled?`<div class="note" style="color:var(--chili)">${t("cancel",state.lang)}: ${it.cancelReason}</div>`:""}
+      ${it.status==="draft"?`
+        <div class="qty-row">
+          <div class="row gap2"><button class="qty-btn" data-act="qty" data-id="${it.lineId}" data-d="-1">−</button><span>${it.qty}</span><button class="qty-btn" data-act="qty" data-id="${it.lineId}" data-d="1">+</button></div>
+          <div class="row gap2">${NOTE_TAGS.map(tag=>`<button class="tag-btn ${it.note===tag?'active':''}" data-act="note" data-id="${it.lineId}" data-tag="${tag}">${tag}</button>`).join("")}</div>
+        </div>`:""}
+      ${it.status==="sent"?`
+        <div class="sent-row"><span style="color:var(--leaf)">${t("sentToKitchen",state.lang)}</span><button data-act="cancelitem" data-id="${it.lineId}" style="color:var(--chili);background:transparent;">${ICO.x} ${t("cancel",state.lang)}</button></div>`:""}
+    </div>`;
+  }).join("") || `<p style="color:var(--dim);font-size:13px;">${t("noItems",state.lang)}</p>`;
+
+  return `
+  <header class="top">
+    <div class="row gap3"><button data-act="backfloor" class="btn sm">${ICO.back}</button><h1 style="font-size:16px;margin:0;">${tb.name}</h1></div>
+    <div class="row gap2 wrap">
+      ${billTabs}
+      <button class="btn sm ghost" data-act="newbill">${ICO.plus} ${t("newBill",state.lang)}</button>
+      <button class="btn sm chili" data-act="openvoidbill">${ICO.ban} ${t("voidBill",state.lang)}</button>
+      ${langSwitcherHtml()}
+    </div>
+  </header>
+  <div class="order-wrap">
+    <div class="menu-col">
+      <input class="search-box" id="search-input" placeholder="${t('search',state.lang)}" value="${state.searchTerm}"/>
+      <div class="cat-tabs">${catTabs}</div>
+      <div class="menu-grid">
+        ${menuCards}
+        <button class="add-item-card" data-act="openadd">➕<span>${t("addNewItem",state.lang)}</span></button>
+      </div>
+    </div>
+    <div class="bill-col">
+      <h2 style="font-size:13px;color:var(--dim);margin-top:0;">${t("billItems",state.lang)} ${bill.label}</h2>
+      <div>${lineRows}</div>
+      <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);">
+        <div class="row between" style="margin-bottom:10px;"><span style="color:var(--dim)">${t("total",state.lang)}</span><span style="color:var(--brass)">${money(billTotal(bill))}</span></div>
+        <div class="row gap2">
+          <button class="btn leaf grow" data-act="sendkitchen" ${!bill.items.some(i=>i.status==="draft")?"disabled":""}>${t("sendToKitchen",state.lang)}</button>
+          <button class="btn brass grow" data-act="gocheckout">${ICO.cart} ${t("checkBill",state.lang)}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+function renderCheckout(){
+  const tb = activeTable(); const bill = activeBill();
+  const total = billTotal(bill);
+  const ck = state._checkout || (state._checkout = { discount:0, tip:0, method:"cash", received:"" });
+  const net = Math.max(0, total - ck.discount + ck.tip);
+  const change = ck.method==="cash" ? Math.max(0, (Number(ck.received)||0) - net) : 0;
+
+  const lineRows = bill.items.filter(it=>it.status!=="cancelled").map(it=>
+    `<div class="receipt-line"><span>${it.name} x${it.qty}</span><span>${money(it.price*it.qty)}</span></div>`
+  ).join("");
+
+  return `
+  <header class="top"><div class="row gap3"><button data-act="backorder" class="btn sm">${ICO.back}</button><h1 style="font-size:16px;margin:0;">${t("checkBill",state.lang)} — ${tb.name} / ${bill.label}</h1></div></header>
+  <div class="checkout-wrap">
+    <div class="receipt-box">
+      ${lineRows}
+      <div class="receipt-line" style="border-top:1px solid var(--line);margin-top:6px;padding-top:8px;color:var(--dim);"><span>${t("grandTotal",state.lang)}</span><span>${money(total)}</span></div>
+    </div>
+    <div class="field-2col">
+      <label class="field">${t("discount",state.lang)} (₭)<input type="number" id="ck-discount" value="${ck.discount}"/></label>
+      <label class="field">${t("tip",state.lang)} (₭)<input type="number" id="ck-tip" value="${ck.tip}"/></label>
+    </div>
+    <div class="method-row">
+      <button class="${ck.method==='cash'?'active':''}" data-act="ckmethod" data-m="cash">${ICO.cash} ${t("cash",state.lang)}</button>
+      <button class="${ck.method==='transfer'?'active':''}" data-act="ckmethod" data-m="transfer">${ICO.bank} ${t("transfer",state.lang)}</button>
+    </div>
+    ${ck.method==="cash"?`<label class="field">${t("amountReceived",state.lang)} (₭)<input type="number" id="ck-received" value="${ck.received}"/></label>`:""}
+    ${ck.method==="transfer"?`<button class="btn ghost" style="width:100%;justify-content:center;margin-bottom:10px;" data-act="openqr">${ICO.qr} ${t("generateQr",state.lang)}</button>`:""}
+    <div class="net-box">
+      <div class="row">${t("netTotal",state.lang)}<span style="margin-left:auto;color:var(--brass)">${money(net)}</span></div>
+      ${ck.method==="cash"?`<div class="row">${t("change",state.lang)}<span style="margin-left:auto;">${money(change)}</span></div>`:""}
+    </div>
+    <button class="btn ghost" style="width:100%;justify-content:center;margin-bottom:10px;" data-act="printinvoice">${ICO.printer} ${t("print",state.lang)}</button>
+    <button class="btn leaf" style="width:100%;justify-content:center;" data-act="openconfirmpay">${t("confirmPay",state.lang)}</button>
+  </div>
+  `;
+}
+
+function renderReports(){
+  const revenue = state.salesLog.reduce((s,sale)=>s+sale.total,0);
+  const cost = state.salesLog.reduce((s,sale)=>s+sale.totalCost,0);
+  const profit = revenue-cost;
+  const qtyByItem = {};
+  state.salesLog.forEach(sale=> sale.items.forEach(it=>{ qtyByItem[it.menuId]=(qtyByItem[it.menuId]||0)+it.qty; }));
+  const ranked = state.menu.map(m=>({...m, sold: qtyByItem[m.id]||0})).sort((a,b)=>b.sold-a.sold);
+  const third = Math.ceil(ranked.length/3)||1;
+  const best = ranked.slice(0,third), medium = ranked.slice(third,third*2), worst = ranked.slice(third*2);
+
+  const tabs = [
+    {id:"overview", label:t("overview",state.lang), ico:ICO.chart},
+    {id:"stock", label:t("stockLabel",state.lang), ico:ICO.box},
+    {id:"rank", label:`${t("bestSellers",state.lang)}/${t("worstSellers",state.lang)}`, ico:"📈"},
+    {id:"barcodes", label:t("barcodes",state.lang), ico:ICO.scan},
+    {id:"voids", label:t("voidLog",state.lang), ico:ICO.shield},
+    {id:"sales", label:t("salesHistory",state.lang), ico:ICO.history},
+    {id:"customers", label:t("customers",state.lang), ico:ICO.users},
+  ];
+  const tabsHtml = tabs.map(tb=>`<button class="${state.reportTab===tb.id?'active':''}" data-act="reporttab" data-tab="${tb.id}">${tb.ico} ${tb.label}</button>`).join("");
+
+  let body = "";
+  if(state.reportTab==="overview"){
+    body = `<div class="stat-grid">
+      <div class="stat-card"><div class="label">${t("revenue",state.lang)}</div><div class="value" style="color:var(--brass)">${money(revenue)}</div></div>
+      <div class="stat-card"><div class="label">${t("costLabel",state.lang)}</div><div class="value" style="color:var(--dim)">${money(cost)}</div></div>
+      <div class="stat-card"><div class="label">${t("profitLabel",state.lang)}</div><div class="value" style="color:var(--leaf)">${money(profit)}</div></div>
+      <div class="stat-card"><div class="label">${t("transactionsCount",state.lang)}</div><div class="value">${state.salesLog.length}</div></div>
+    </div>
+    ${state.salesLog.length===0?`<p style="color:var(--dim);font-size:13px;margin-top:14px;">${t("noSalesYet",state.lang)}</p>`:""}
+    <p style="color:var(--dim);font-size:11px;margin-top:14px;">${state.sheetUrl ? t("sheetConnectedNote",state.lang) : t("sheetNotConnected",state.lang)}</p>
+    <div class="row gap2" style="margin-top:8px;">
+      <button class="btn brass" data-act="opensyncsettings">📊 ${t("sheetSettings",state.lang)}</button>
+      <button class="btn chili" data-act="openreset">${ICO.trash} ${t("resetAllData",state.lang)}</button>
+    </div>`;
+  }
+  else if(state.reportTab==="stock"){
+    body = state.menu.map(m=>{
+      const low = (m.stock??0)<=10;
+      return `<div class="list-row"><span>${m.emoji} ${m.name[state.lang]||m.name.lo}</span>
+        <div class="row gap3">
+          <span style="color:${low?'var(--chili)':'var(--text)'}">${m.stock??0} ${t("unitsLeft",state.lang)}${low?` · ${t("lowStock",state.lang)}`:""}</span>
+          <button class="btn sm brass" data-act="openreceive" data-id="${m.id}">${ICO.box} ${t("receiveStock",state.lang)}</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+  else if(state.reportTab==="rank"){
+    const grp = (title,color,arr)=>`<div class="rank-group"><h3 style="color:${color}">${title}</h3>${arr.length===0?`<p style="color:var(--dim);font-size:12px;">—</p>`:arr.map(m=>`<div class="list-row"><span>${m.emoji} ${m.name[state.lang]||m.name.lo}</span><span style="color:var(--brass)">${m.sold} ${t("qtySold",state.lang)}</span></div>`).join("")}</div>`;
+    body = grp(t("bestSellers",state.lang),"var(--leaf)",best) + grp(t("mediumSellers",state.lang),"var(--brass)",medium) + grp(t("worstSellers",state.lang),"var(--chili)",worst);
+  }
+  else if(state.reportTab==="barcodes"){
+    body = `<div class="barcode-grid">${state.menu.map(m=>`<div class="barcode-card"><span style="font-size:13px;">${m.name[state.lang]||m.name.lo}</span>${barcodeSvg(m.sku)}</div>`).join("")}</div>`;
+  }
+  else if(state.reportTab==="voids"){
+    body = state.voidLog.length===0 ? `<p style="color:var(--dim);font-size:13px;">${t("noVoidsYet",state.lang)}</p>` :
+      state.voidLog.map(v=>`<div class="void-card">
+        <div class="row between"><span style="color:var(--chili)">${v.type==="bill"?t("voidBillType",state.lang):t("voidItemType",state.lang)}</span><span style="color:var(--dim)">${new Date(v.time).toLocaleString()}</span></div>
+        <div>${t("who",state.lang)}: ${v.who}</div><div>${t("staff",state.lang)}: ${v.staff}</div><div>${t("reasonLabel",state.lang)}: ${v.reason}</div>
+      </div>`).join("");
+  }
+  else if(state.reportTab==="sales"){
+    body = state.salesLog.length===0 ? `<p style="color:var(--dim);font-size:13px;">${t("noSalesYet",state.lang)}</p>` :
+      state.salesLog.map(s=>`<div class="list-row" style="flex-direction:column;align-items:stretch;">
+        <div class="row between"><span>${s.tableName} / ${s.billLabel} — ${s.staff}</span><span style="color:var(--dim);font-size:11px;">${new Date(s.time).toLocaleString()}</span></div>
+        <div class="row between" style="margin-top:4px;"><span style="color:var(--dim);font-size:12px;">${s.items.map(it=>it.name+" x"+it.qty).join(", ")}</span><span style="color:var(--brass)">${money(s.total)}</span></div>
+      </div>`).join("");
+  }
+  else if(state.reportTab==="customers"){
+    body = `<button class="btn brass" data-act="opencustomer" style="margin-bottom:12px;">➕ ${t("addCustomer",state.lang)}</button>` +
+      (state.customers.length===0 ? `<p style="color:var(--dim);font-size:13px;">${t("noCustomersYet",state.lang)}</p>` :
+      state.customers.map(c=>`<div class="list-row">
+        <div><div>${c.name}</div><div style="font-size:11px;color:var(--dim);">${c.phone||""} ${c.note?`· ${c.note}`:""}</div></div>
+        <div class="row gap2"><button class="btn sm" data-act="opencustomer" data-id="${c.id}">${ICO.pencil}</button><button class="btn sm chili" data-act="opendeletecustomer" data-id="${c.id}">${ICO.trash}</button></div>
+      </div>`).join(""));
+  }
+
+  return `
+  <header class="top"><div class="row gap3"><button data-act="backfloor" class="btn sm">${ICO.back}</button><h1 style="font-size:16px;margin:0;flex:1;">${t("reports",state.lang)}</h1></div>${langSwitcherHtml()}</header>
+  <div class="p4">
+    <div class="tabs-row">${tabsHtml}</div>
+    ${body}
+  </div>
+  `;
+}
+
+/* =========================================================
+   MODALS
+========================================================= */
+function removeModal(){
+  const el = document.getElementById("modal-root");
+  if(el) el.remove();
+}
+function renderModal(){
+  removeModal();
+  const root = document.createElement("div");
+  root.id="modal-root";
+  document.body.appendChild(root);
+  const m = state.modal;
+  let html = "";
+
+  if(m.type==="image"){
+    const item = state.menu.find(x=>x.id===m.menuId);
+    const src = imageSrcOf(item);
+    const urlVal = (item.image && !item.image.startsWith("stored:")) ? item.image : "";
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${t("addImage",state.lang)} — ${item.name[state.lang]||item.name.lo}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <div style="width:100%;height:120px;border-radius:10px;background:var(--panelAlt);display:flex;align-items:center;justify-content:center;font-size:42px;overflow:hidden;margin-bottom:10px;">
+        ${src?`<img src="${src}" style="width:100%;height:100%;object-fit:cover;"/>`:`<span>${item.emoji}</span>`}
+      </div>
+      <label class="field">ວາງລິ້ງຮູບ (URL)<input type="text" id="img-url" placeholder="https://..." value="${urlVal}"/></label>
+      <button class="btn brass" style="width:100%;justify-content:center;margin-bottom:10px;" data-act="saveimageurl" data-id="${item.id}">🔗 ${t("save",state.lang)}</button>
+      <div style="text-align:center;font-size:11px;color:var(--dim);margin:8px 0;">ຫຼື</div>
+      <input type="file" id="img-file" accept="image/*" class="hidden"/>
+      <button class="btn ghost" style="width:100%;justify-content:center;margin-bottom:10px;" data-act="clickfile">📤 ອັບໂຫຼດ/ຄົ້ນຫາຮູບໃນອຸປະກອນ</button>
+      ${src?`<button class="btn chili" style="width:100%;justify-content:center;" data-act="removeimage" data-id="${item.id}">${ICO.trash} ${t("delete",state.lang)}</button>`:""}
+    </div></div>`;
+  }
+  else if(m.type==="editItem" || m.type==="addItem"){
+    const item = m.type==="editItem" ? state.menu.find(x=>x.id===m.menuId) : null;
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${item?t("editItem",state.lang):t("addNewItem",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <label class="field">${t("itemNameLabel",state.lang)}<input type="text" id="f-name" value="${item?(item.name[state.lang]||item.name.lo):""}"/></label>
+      <label class="field">${t("priceLabel",state.lang)}<input type="number" id="f-price" value="${item?item.price:0}"/></label>
+      <label class="field">${t("costLabel2",state.lang)}<input type="number" id="f-cost" value="${item?item.cost||0:0}"/></label>
+      <label class="field">${t("stockLabel2",state.lang)}<input type="number" id="f-stock" value="${item?item.stock??0:0}"/></label>
+      <div class="err hidden" id="f-err">${t("fieldRequired",state.lang)}</div>
+      <button class="btn leaf" style="width:100%;justify-content:center;" data-act="${item?'saveedit':'saveadd'}" data-id="${item?item.id:''}" data-cat="${m.cat||state.activeCat}">✔ ${item?t("save",state.lang):t("add",state.lang)}</button>
+    </div></div>`;
+  }
+  else if(m.type==="deleteItem"){
+    const item = state.menu.find(x=>x.id===m.menuId);
+    html = `<div class="overlay" data-close="1"><div class="modal danger" data-stop="1">
+      <div class="mtop"><h3 style="color:var(--chili)">ລົບສິນຄ້ານີ້?</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <p style="font-size:13px;color:var(--dim);">${item.name[state.lang]||item.name.lo} — ຈະຖືກລົບອອກຈາກເມນູຖາວອນ ບໍ່ສາມາດກູ້ຄືນໄດ້.</p>
+      <div class="row gap2"><button class="btn grow" data-act="closemodal">${t("close",state.lang)}</button><button class="btn chili-solid grow" data-act="confirmdelete" data-id="${item.id}">${t("delete",state.lang)}</button></div>
+    </div></div>`;
+  }
+  else if(m.type==="cancelItem" || m.type==="voidBill"){
+    const isBill = m.type==="voidBill";
+    html = `<div class="overlay" data-close="1"><div class="modal ${isBill?'danger':''}" data-stop="1">
+      <div class="mtop"><h3>${isBill?t("voidBill",state.lang):t("cancel",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <label class="field">${t("staffNameLabel",state.lang)}<input type="text" id="f-staff"/></label>
+      <label class="field">${t("reasonLabel",state.lang)}<input type="text" id="f-reason"/></label>
+      <div class="err hidden" id="f-err">${t("fieldRequired",state.lang)}</div>
+      <button class="btn chili-solid" style="width:100%;justify-content:center;" data-act="${isBill?'confirmvoidbill':'confirmcancelitem'}" data-id="${isBill?'':m.lineId}">${t("cancel",state.lang)}</button>
+    </div></div>`;
+  }
+  else if(m.type==="confirmPay"){
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${t("confirmPay",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <label class="field">${t("staffNameLabel",state.lang)}<input type="text" id="f-staff"/></label>
+      <div class="err hidden" id="f-err">${t("fieldRequired",state.lang)}</div>
+      <button class="btn leaf" style="width:100%;justify-content:center;" data-act="confirmpaysubmit">✔ ${t("confirmPay",state.lang)}</button>
+    </div></div>`;
+  }
+  else if(m.type==="reset"){
+    html = `<div class="overlay" data-close="1"><div class="modal danger" data-stop="1">
+      <div class="mtop"><h3 style="color:var(--chili)">${t("resetAllData",state.lang)}?</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <p style="font-size:13px;color:var(--dim);">ໂຕະ, ເມນູ, ຍອດຂາຍ, ລູກຄ້າ ແລະ ປະຫວັດທັງໝົດຈະຖືກລົບ. ບໍ່ສາມາດກູ້ຄືນໄດ້.</p>
+      <div class="row gap2"><button class="btn grow" data-act="closemodal">${t("close",state.lang)}</button><button class="btn chili-solid grow" data-act="confirmreset">${t("resetAllData",state.lang)}</button></div>
+    </div></div>`;
+  }
+  else if(m.type==="receiveStock"){
+    const item = state.menu.find(x=>x.id===m.menuId);
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${t("receiveStockTitle",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <p style="font-size:13px;color:var(--dim);">${item.name[state.lang]||item.name.lo} — ${t("stockLabel",state.lang)}: ${item.stock??0}</p>
+      <label class="field">${t("qtyToReceive",state.lang)}<input type="number" id="f-qty" value="1"/></label>
+      <button class="btn brass" style="width:100%;justify-content:center;" data-act="confirmreceive" data-id="${item.id}">${ICO.box} ${t("receiveStock",state.lang)}</button>
+    </div></div>`;
+  }
+  else if(m.type==="customer"){
+    const c = m.id ? state.customers.find(x=>x.id===m.id) : null;
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${c?t("editItem",state.lang):t("addCustomer",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <label class="field">${t("customerName",state.lang)}<input type="text" id="f-cname" value="${c?c.name:''}"/></label>
+      <label class="field">${t("customerPhone",state.lang)}<input type="text" id="f-cphone" value="${c?c.phone||'':''}"/></label>
+      <label class="field">${t("customerNote",state.lang)}<input type="text" id="f-cnote" value="${c?c.note||'':''}"/></label>
+      <div class="err hidden" id="f-err">${t("fieldRequired",state.lang)}</div>
+      <button class="btn leaf" style="width:100%;justify-content:center;" data-act="savecustomer" data-id="${c?c.id:''}">✔ ${t("save",state.lang)}</button>
+    </div></div>`;
+  }
+  else if(m.type==="deleteCustomer"){
+    const c = state.customers.find(x=>x.id===m.id);
+    html = `<div class="overlay" data-close="1"><div class="modal danger" data-stop="1">
+      <div class="mtop"><h3 style="color:var(--chili)">ລົບລູກຄ້ານີ້?</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <p style="font-size:13px;color:var(--dim);">${c.name}</p>
+      <div class="row gap2"><button class="btn grow" data-act="closemodal">${t("close",state.lang)}</button><button class="btn chili-solid grow" data-act="confirmdeletecustomer" data-id="${c.id}">${t("delete",state.lang)}</button></div>
+    </div></div>`;
+  }
+  else if(m.type==="qr"){
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${t("generateQr",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <label class="field">${t("bankSettings",state.lang)}
+        <select id="f-bank-select">
+          <option value="">— ${t("bankName",state.lang)} —</option>
+          ${state.bankAccounts.map(b=>`<option value="${b.id}">${b.bankName} — ${b.accountName}</option>`).join("")}
+        </select>
+      </label>
+      <button class="btn ghost" style="width:100%;justify-content:center;margin-bottom:10px;" data-act="openbanksettings">⚙ ${t("bankSettings",state.lang)}</button>
+      <div id="qr-target" class="qr-box hidden"></div>
+      <p style="font-size:11px;color:var(--dim);">${t("qrDisclaimer",state.lang)}</p>
+      <button class="btn brass" style="width:100%;justify-content:center;margin-top:10px;" data-act="generateqr">${ICO.qr} ${t("generateQr",state.lang)}</button>
+    </div></div>`;
+  }
+  else if(m.type==="banksettings"){
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${t("bankSettings",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <label class="field">${t("bankName",state.lang)}<input type="text" id="f-bankname"/></label>
+      <label class="field">${t("accountName",state.lang)}<input type="text" id="f-accname"/></label>
+      <label class="field">${t("accountNumber",state.lang)}<input type="text" id="f-accnum"/></label>
+      <button class="btn leaf" style="width:100%;justify-content:center;margin-bottom:14px;" data-act="savebankaccount">✔ ${t("add",state.lang)}</button>
+      ${state.bankAccounts.map(b=>`<div class="list-row"><span>${b.bankName} — ${b.accountName} (${b.accountNumber})</span><button class="btn sm chili" data-act="deletebankaccount" data-id="${b.id}">${ICO.trash}</button></div>`).join("")}
+    </div></div>`;
+  }
+  else if(m.type==="syncSettings"){
+    html = `<div class="overlay" data-close="1"><div class="modal" data-stop="1">
+      <div class="mtop"><h3>${t("sheetSettings",state.lang)}</h3><button data-act="closemodal">${ICO.x}</button></div>
+      <p style="font-size:11px;color:var(--dim);margin-bottom:10px;">ວາງ Web App URL ທີ່ໄດ້ຈາກການ Deploy Google Apps Script — ໃຊ້ URL ດຽວກັນນີ້ໃນທຸກອຸປະກອນ ເພື່ອໃຫ້ຂໍ້ມູນເຊື່ອມກັນ</p>
+      <label class="field">${t("sheetUrlLabel",state.lang)}<input type="text" id="f-sheet-url" placeholder="https://script.google.com/macros/s/.../exec" value="${state.sheetUrl||''}"/></label>
+      <div id="sheet-test-msg" style="font-size:12px;margin-bottom:10px;"></div>
+      <div class="row gap2">
+        <button class="btn leaf grow" data-act="savesheeturl">✔ ${t("sheetSave",state.lang)}</button>
+        <button class="btn ghost grow" data-act="testsheeturl">${t("sheetTest",state.lang)}</button>
+      </div>
+      ${state.sheetUrl?`<button class="btn chili" style="width:100%;justify-content:center;margin-top:10px;" data-act="disconnectsheet">${t("sheetDisconnect",state.lang)}</button>`:""}
+    </div></div>`;
+  }
+
+  root.innerHTML = html;
+  attachModalHandlers(root);
+}
+
+/* =========================================================
+   EVENT WIRING
+========================================================= */
+function attachGlobalHandlers(){
+  document.querySelectorAll("[data-act]").forEach(el=>{
+    if(el._wired) return;
+    el._wired = true;
+    el.addEventListener("click", onAction);
+  });
+  const searchInput = document.getElementById("search-input");
+  if(searchInput){
+    searchInput.addEventListener("input", (e)=>{ state.searchTerm = e.target.value; render(); setTimeout(()=>{const i=document.getElementById("search-input"); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length);} },0); });
+  }
+  ["ck-discount","ck-tip","ck-received"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener("input",(e)=>{
+      const ck = state._checkout;
+      if(id==="ck-discount") ck.discount = Number(e.target.value)||0;
+      if(id==="ck-tip") ck.tip = Number(e.target.value)||0;
+      if(id==="ck-received") ck.received = e.target.value;
+      render();
+    });
+  });
+}
+
+function onAction(e){
+  const el = e.currentTarget;
+  const act = el.dataset.act;
+  const id = el.dataset.id;
+
+  if(act==="setlang") setLang(el.dataset.lang);
+  else if(act==="goreports"){ state.view={screen:"reports"}; render(); }
+  else if(act==="backfloor"){ state.view={screen:"floor"}; render(); }
+  else if(act==="opentable") openTable(Number(id));
+  else if(act==="setcat"){ state.activeCat=el.dataset.cat; state.searchTerm=""; render(); }
+  else if(act==="additem"){ addItemToBill(state.menu.find(m=>m.id===id)); }
+  else if(act==="newbill"){ addBillToTable(activeTable().id); }
+  else if(act==="switchbill"){ switchBill(activeTable().id, id); }
+  else if(act==="qty"){ changeQty(id, Number(el.dataset.d)); }
+  else if(act==="note"){ setNote(id, el.dataset.tag); }
+  else if(act==="sendkitchen"){ sendToKitchen(); }
+  else if(act==="gocheckout"){ state._checkout = {discount:0,tip:0,method:"cash",received:""}; state.view={screen:"checkout",tableId:activeTable().id,billId:activeBill().id}; render(); }
+  else if(act==="backorder"){ state.view={screen:"order",tableId:activeTable().id,billId:activeBill().id}; render(); }
+  else if(act==="ckmethod"){ state._checkout.method = el.dataset.m; render(); }
+  else if(act==="cancelitem"){ openModal({type:"cancelItem", lineId:id}); }
+  else if(act==="openvoidbill"){ openModal({type:"voidBill", tableId:activeTable().id, billId:activeBill().id}); }
+  else if(act==="openimage"){ openModal({type:"image", menuId:id}); }
+  else if(act==="openedit"){ openModal({type:"editItem", menuId:id}); }
+  else if(act==="opendelete"){ openModal({type:"deleteItem", menuId:id}); }
+  else if(act==="openadd"){ openModal({type:"addItem", cat: state.activeCat}); }
+  else if(act==="openreceive"){ openModal({type:"receiveStock", menuId:id}); }
+  else if(act==="opencustomer"){ openModal({type:"customer", id: id||null}); }
+  else if(act==="opendeletecustomer"){ openModal({type:"deleteCustomer", id:id}); }
+  else if(act==="reporttab"){ state.reportTab = el.dataset.tab; render(); }
+  else if(act==="openreset"){ openModal({type:"reset"}); }
+  else if(act==="printinvoice"){ printInvoice(); }
+  else if(act==="openqr"){ openModal({type:"qr"}); }
+  else if(act==="openconfirmpay"){ openModal({type:"confirmPay"}); }
+  else if(act==="opensyncsettings"){ openModal({type:"syncSettings"}); }
+  else if(act==="closemodal"){ closeModal(); }
+}
+
+function attachModalHandlers(root){
+  root.querySelectorAll(".overlay").forEach(ov=>{
+    ov.addEventListener("click",(e)=>{ if(e.target===ov) closeModal(); });
+  });
+  root.querySelectorAll("[data-act]").forEach(el=>{
+    el.addEventListener("click",(e)=>{
+      const act = el.dataset.act; const id = el.dataset.id;
+      if(act==="closemodal") closeModal();
+      else if(act==="clickfile") root.querySelector("#img-file").click();
+      else if(act==="saveimageurl"){
+        const url = root.querySelector("#img-url").value.trim();
+        if(url) doSaveImageUrl(id,url);
+      }
+      else if(act==="removeimage") doRemoveImage(id);
+      else if(act==="saveedit" || act==="saveadd"){
+        const name = root.querySelector("#f-name").value.trim();
+        const price = Number(root.querySelector("#f-price").value);
+        const cost = Number(root.querySelector("#f-cost").value);
+        const stock = Number(root.querySelector("#f-stock").value);
+        if(!name || isNaN(price) || isNaN(cost) || isNaN(stock)){ root.querySelector("#f-err").classList.remove("hidden"); return; }
+        if(act==="saveedit") doEditMenuItem(id,{name,price,cost,stock});
+        else doAddMenuItem(el.dataset.cat,{name,price,cost,stock});
+      }
+      else if(act==="confirmdelete") doDeleteMenuItem(id);
+      else if(act==="confirmcancelitem" || act==="confirmvoidbill"){
+        const staff = root.querySelector("#f-staff").value.trim();
+        const reason = root.querySelector("#f-reason").value.trim();
+        if(!staff || !reason){ root.querySelector("#f-err").classList.remove("hidden"); return; }
+        if(act==="confirmcancelitem") doCancelSentItem(id,staff,reason);
+        else doVoidBill(state.modal.tableId, state.modal.billId, staff, reason);
+      }
+      else if(act==="confirmreset") resetAllData();
+      else if(act==="confirmreceive"){
+        const qty = Number(root.querySelector("#f-qty").value)||0;
+        if(qty>0) doReceiveStock(id,qty);
+      }
+      else if(act==="savecustomer"){
+        const name = root.querySelector("#f-cname").value.trim();
+        const phone = root.querySelector("#f-cphone").value.trim();
+        const note = root.querySelector("#f-cnote").value.trim();
+        if(!name){ root.querySelector("#f-err").classList.remove("hidden"); return; }
+        if(id) doEditCustomer(id,{name,phone,note});
+        else doAddCustomer({name,phone,note});
+      }
+      else if(act==="confirmdeletecustomer") doDeleteCustomer(id);
+      else if(act==="confirmpaysubmit"){
+        const staff = root.querySelector("#f-staff").value.trim();
+        if(!staff){ root.querySelector("#f-err").classList.remove("hidden"); return; }
+        submitPayment(staff);
+      }
+      else if(act==="openbanksettings") openModal({type:"banksettings"});
+      else if(act==="savebankaccount"){
+        const bankName = root.querySelector("#f-bankname").value.trim();
+        const accountName = root.querySelector("#f-accname").value.trim();
+        const accountNumber = root.querySelector("#f-accnum").value.trim();
+        if(bankName && accountName && accountNumber) doSaveBankAccount({bankName,accountName,accountNumber});
+      }
+      else if(act==="deletebankaccount") doDeleteBankAccount(Number(id));
+      else if(act==="generateqr"){
+        const sel = root.querySelector("#f-bank-select");
+        const bank = state.bankAccounts.find(b=>String(b.id)===sel.value);
+        const target = root.querySelector("#qr-target");
+        target.classList.remove("hidden");
+        target.innerHTML = "";
+        const ck = state._checkout;
+        const total = billTotal(activeBill());
+        const net = Math.max(0, total - ck.discount + ck.tip);
+        const payload = bank
+          ? `BANK:${bank.bankName}|ACCT_NAME:${bank.accountName}|ACCT_NO:${bank.accountNumber}|AMOUNT:${net}|CURRENCY:LAK`
+          : `AMOUNT:${net}|CURRENCY:LAK`;
+        if(window.QRCode){ new QRCode(target, { text: payload, width:180, height:180 }); }
+        else { target.textContent = "QR library not loaded"; }
+      }
+      else if(act==="savesheeturl"){
+        const url = root.querySelector("#f-sheet-url").value.trim();
+        setSheetUrl(url);
+        closeModal();
+      }
+      else if(act==="testsheeturl"){
+        const url = root.querySelector("#f-sheet-url").value.trim();
+        const msg = root.querySelector("#sheet-test-msg");
+        msg.style.color = "var(--dim)"; msg.textContent = t("sheetTestSending",state.lang);
+        const prevUrl = state.sheetUrl;
+        state.sheetUrl = url;
+        testSheetConnection().then(ok=>{
+          state.sheetUrl = prevUrl;
+          msg.style.color = ok ? "var(--leaf)" : "var(--chili)";
+          msg.textContent = ok ? t("sheetTestOk",state.lang) : t("sheetTestFail",state.lang);
+        });
+      }
+      else if(act==="disconnectsheet"){ disconnectSheet(); }
+    });
+  });
+  const fileInput = root.querySelector("#img-file");
+  if(fileInput){
+    fileInput.addEventListener("change",(e)=>{
+      const file = e.target.files[0];
+      if(file) doUploadImageFile(state.modal.menuId, file);
+    });
+  }
+}
+
+/* =========================================================
+   PAYMENT + PRINT
+========================================================= */
+function submitPayment(staff){
+  state.modal = null;
+  const tb = activeTable(); const bill = activeBill();
+  const ck = state._checkout;
+  const total = billTotal(bill);
+  const net = Math.max(0, total - ck.discount + ck.tip);
+  const soldItems = bill.items.filter(it=>it.status!=="cancelled");
+  const totalCost = soldItems.reduce((s,it)=>s+(it.cost||0)*it.qty,0);
+  const record = {
+    id: uid(), time:new Date().toISOString(), tableId:tb.id, tableName:tb.name, billLabel:bill.label,
+    staff, method:ck.method, discount:ck.discount, tip:ck.tip, total:net, totalCost,
+    items: soldItems.map(it=>({menuId:it.menuId,name:it.name,qty:it.qty,price:it.price,cost:it.cost||0})),
+    _billId: bill.id,
+  };
+  finalizeSale(record);
+}
+function printInvoice(){
+  const tb = activeTable(); const bill = activeBill();
+  const total = billTotal(bill);
+  document.getElementById("p-title").textContent = "ໃບບິນ / INVOICE";
+  document.getElementById("p-sub").textContent = `${tb.name} / ${bill.label} — ${new Date().toLocaleString()}`;
+  const lines = bill.items.filter(it=>it.status!=="cancelled").map(it=>
+    `<div class="p-line"><span>${it.name} x${it.qty}</span><span>${money(it.price*it.qty)}</span></div>`
+  ).join("");
+  document.getElementById("p-lines").innerHTML = lines;
+  document.getElementById("p-total").innerHTML = `<div class="p-line"><span>${t("grandTotal",state.lang)}</span><span>${money(total)}</span></div>`;
+  document.getElementById("p-thanks").textContent = "ຂອບໃຈທີ່ອຸດໜູນ / Thank you";
+  window.print();
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+loadData();
+</script>
+</body>
+</html>
 
